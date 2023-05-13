@@ -5,8 +5,8 @@ import pandas as pd
 import datetime
 import os
 from fastapi import FastAPI, File, UploadFile
-from pathlib import Path
-import matplotlib.pyplot as plt
+#from pathlib import Path
+#import matplotlib.pyplot as plt
 #from tabulate import tabulate
 #import psycopg2
 #import random
@@ -14,19 +14,19 @@ import string
 
 
 #Cargar datos
+#Cargar datos
 resultados_consolidados=pd.read_csv("resultados_consolidados.csv")
 
-#recomendaciones por advertiser y modelo (falta fecha)
+#recomendaciones por advertiser y modelo
 app = FastAPI()
 @app.get("/recomendacion/")
-async def recomendacion(advertiser_id: str, modelo: str):
+async def recomendacion(advertiser_id: str, date: str, modelo: str):
     conn = sqlite3.connect(':memory:')
     resultados_consolidados.to_sql('tabla_products1', conn, index=False)
     cur1= conn.cursor()
-    cur1.execute(f"SELECT GROUP_CONCAT(product_id) as products FROM tabla_products1 WHERE advertiser_id = '{advertiser_id}' AND  modelo = '{modelo}'")
+    cur1.execute(f"SELECT GROUP_CONCAT(product_id) as products FROM tabla_products1 WHERE advertiser_id = '{advertiser_id}' AND date = '{date}' AND  modelo = '{modelo}'")
     datos1 = cur1.fetchone()
-    return {"advertiser_id": advertiser_id,"products": datos1[0]}
-
+    return {"advertiser_id": advertiser_id,  "date": date, "products": datos1[0]}
 
 #Cantidad de advertisers
 
@@ -47,46 +47,31 @@ async def get_stats():
 resultados_consolidados_coincidencias=pd.read_csv("resultados_consolidados_coincidencias.csv")
 
 @app.get("/coincidencias/")
-async def coincidencias(advertiser_id: str):
+async def coincidencias(advertiser_id: str, date: str):
     conn = sqlite3.connect(':memory:')
     resultados_consolidados_coincidencias.to_sql('tabla_products3', conn, index=False) #aca "product" es el nombre de la nueva tabla
     cur3 = conn.cursor()
-    cur3.execute(f"SELECT date, advertiser_id, advertiser_product, product_id FROM tabla_products3 WHERE modelo = 'modelo_1' AND advertiser_product IN (SELECT advertiser_product FROM tabla_products3 WHERE modelo = 'modelo_2')")
+    cur3.execute(f"SELECT date, advertiser_id, advertiser_product, GROUP_CONCAT(product_id) as products FROM tabla_products3 WHERE modelo = 'modelo_1' AND advertiser_product IN (SELECT advertiser_product FROM tabla_products3 WHERE modelo = 'modelo_2')")
     datos3 = cur3.fetchone()
-    return {"advertiser_id": advertiser_id,"products": datos3[3]}
+    return {"advertiser_id": advertiser_id, "date": date, "products": datos3[3]}
 
+
+#Coincidencias2 (falta filtrar fecha)
 
 #Cargar datos
-resultados_consolidados=pd.read_csv("resultados_consolidados.csv")
+resultados_consolidados_coincidencias=pd.read_csv("resultados_consolidados_coincidencias.csv")
 
-#recomendaciones por advertiser y modelo
-@app.get("/recomendacion2/")
-async def recomendacion(advertiser_id: str, date: str, modelo: str):
+@app.get("/coincidencias2/")
+async def coincidencias2(advertiser_id: str, date: str):
     conn = sqlite3.connect(':memory:')
-    resultados_consolidados.to_sql('tabla_products1', conn, index=False)
-    cur1= conn.cursor()
-    cur1.execute(f"SELECT GROUP_CONCAT(product_id) as products FROM tabla_products1 WHERE advertiser_id = '{advertiser_id}' AND date = '{date}' AND  modelo = '{modelo}'")
-    datos1 = cur1.fetchone()
-    return {"advertiser_id": advertiser_id,  "date": date, "products": datos1[0]}
-
+    resultados_consolidados_coincidencias.to_sql('tabla_products3', conn, index=False) #aca "product" es el nombre de la nueva tabla
+    cur3 = conn.cursor()
+    cur3.execute(f"SELECT DISTINCT date, advertiser_id, product_id, advertiser_product FROM tabla_products3 WHERE modelo='modelo_1' OR modelo='modelo_2' GROUP BY date, advertiser_id HAVING COUNT(DISTINCT modelo) = 2")
+    datos3 = cur3.fetchone()
+    return {"advertiser_id": advertiser_id, "date": date, "products": datos3[2]}
 
 #Histoy
-#/history/ 
-#Esta entrada devuelve un JSON con todas las recomendaciones para el
-#advertirse pasado por parámetro en los últimos 7 días.
 
-@app.get("/history/")
-async def historyn(date: str,advertiser_id: str, modelo: str):
-    conn = sqlite3.connect(':memory:')
-    resultados_consolidados.to_sql('tabla_products4', conn, index=False)
-    c = conn.cursor()
-    query = f"SELECT date, GROUP_CONCAT(product_id) FROM tabla_products4 WHERE advertiser_id='{advertiser_id}' AND modelo='{modelo}' GROUP BY date"
-    c.execute(query)
-    datos4 = c.fetchall()
-    resultados={}
-    for row in datos4:
-        resultados[row[0]]=row[1].split(',')
-    return {"advertiser_id": advertiser_id, "modelo": modelo, "results": resultados}
 
 
 ######## fecha opcional
@@ -130,7 +115,7 @@ async def get_products(advertiser_id: str, modelo: str, date: Optional[str] = No
     conn = sqlite3.connect(':memory:')
     resultados_consolidados.to_sql('tabla_products4', conn, index=False)
     c = conn.cursor()
-    fecha_inicial = (date - timedelta(days=3)).strftime('%Y-%m-%d')
+    fecha_inicial = (date - timedelta(days=7)).strftime('%Y-%m-%d')
     query = f"SELECT date, product_id FROM tabla_products4 WHERE advertiser_id='{advertiser_id}' AND modelo='{modelo}' AND date BETWEEN '{fecha_inicial}' AND '{date.strftime('%Y-%m-%d')}'"
     c.execute(query)
     datos = c.fetchall()
