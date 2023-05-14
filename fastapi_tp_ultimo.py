@@ -45,8 +45,10 @@ async def get_stats():
     return {"advertiser_ids": [resultado[0] for resultado in resultados]}
 
 
-#Coincidencias (falta filtrar fecha)
-#Cargar datos
+#Coincidencias 
+#Esta entrada devuelve un JSON con un resumen de estadísticas sobre las
+#recomendaciones a determinar por ustedes. Algunas opciones posibles:
+   # Productos que coinciden entre ambos modelos por advertiser por dia
 resultados_consolidados_coincidencias=pd.read_csv("resultados_consolidados_coincidencias.csv")
 
 @app.get("/coincidencias/")
@@ -54,26 +56,12 @@ async def coincidencias(advertiser_id: str, date: str):
     conn = sqlite3.connect(':memory:')
     resultados_consolidados_coincidencias.to_sql('tabla_products3', conn, index=False) #aca "product" es el nombre de la nueva tabla
     cur3 = conn.cursor()
-    cur3.execute(f"SELECT date, advertiser_id, advertiser_product, GROUP_CONCAT(product_id) as products FROM tabla_products3 WHERE modelo = 'modelo_1' AND advertiser_product IN (SELECT advertiser_product FROM tabla_products3 WHERE modelo = 'modelo_2')")
+    cur3.execute(f"SELECT date, advertiser_id, advertiser_product, GROUP_CONCAT(product_id) as products FROM tabla_products3 WHERE date = '{date}' AND advertiser_id = '{advertiser_id}' AND modelo = 'modelo_1' AND advertiser_product IN (SELECT advertiser_product FROM tabla_products3 WHERE date = '{date}' AND advertiser_id = '{advertiser_id}' AND modelo = 'modelo_2') GROUP BY date, advertiser_id")
     datos3 = cur3.fetchone()
     return {"advertiser_id": advertiser_id, "date": date, "products": datos3[3]}
 
 
-#Coincidencias2 (falta filtrar fecha)
-
-#Cargar datos
-resultados_consolidados_coincidencias=pd.read_csv("resultados_consolidados_coincidencias.csv")
-
-@app.get("/coincidencias2/")
-async def coincidencias2(advertiser_id: str, date: str):
-    conn = sqlite3.connect(':memory:')
-    resultados_consolidados_coincidencias.to_sql('tabla_products3', conn, index=False) #aca "product" es el nombre de la nueva tabla
-    cur3 = conn.cursor()
-    cur3.execute(f"SELECT DISTINCT date, advertiser_id, product_id, advertiser_product FROM tabla_products3 WHERE modelo='modelo_1' OR modelo='modelo_2' GROUP BY date, advertiser_id HAVING COUNT(DISTINCT modelo) = 2")
-    datos3 = cur3.fetchone()
-    return {"advertiser_id": advertiser_id, "date": date, "products": datos3[2]}
-
-#Histoy
+#History
 #/history/<ADV>/
 #Esta entrada devuelve un JSON con todas las recomendaciones para el advertirse pasado por parámetro en los últimos 7 días.
 
