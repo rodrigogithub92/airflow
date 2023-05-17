@@ -94,3 +94,31 @@ async def get_products(advertiser_id: str, modelo: str, date: Optional[str] = No
             results[fecha].append(product_id)
 
     return {"advertiser_id": advertiser_id, "modelo": modelo, "results": results}
+
+#Diferencias
+@app.get("/variaciones/{modelo}")
+
+def variaciones(modelo: str):
+    conn = sqlite3.connect(':memory:')
+    resultados_consolidados.to_sql('tabla_products5', conn, index=False)
+    cur = conn.cursor()
+    cur.execute(f"SELECT DISTINCT advertiser_id FROM tabla_products5 WHERE modelo = '{modelo}'")
+    advertisers = cur.fetchall()
+    result = {}
+    for adv in advertisers:
+        adv_id = adv[0]
+        cur.execute(f"SELECT DISTINCT date FROM tabla_products5 WHERE modelo = '{modelo}' AND advertiser_id = '{adv_id}' ORDER BY date")
+        dates = cur.fetchall()
+        diffs = {}
+        for i in range(len(dates)-1):
+            date1 = dates[i][0]
+            date2 = dates[i+1][0]
+            cur.execute(f"SELECT COUNT(DISTINCT product_id) FROM tabla_products5 WHERE modelo = '{modelo}' AND advertiser_id = '{adv_id}'")
+            count1 = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(DISTINCT product_id) FROM tabla_products5 WHERE modelo = '{modelo}' AND advertiser_id = '{adv_id}'")
+            count2 = cur.fetchone()[0]
+            diffs[date1] = abs(count1 - count2)
+        total_diffs = sum(diffs.values())
+        result[adv_id] = {"modelo": modelo, "advertiser_id": adv_id, "variaciones": diffs, "total_variaciones": total_diffs}
+    result_sorted = sorted(result.values(), key=lambda x: x["total_variaciones"], reverse=True)
+    return result_sorted
