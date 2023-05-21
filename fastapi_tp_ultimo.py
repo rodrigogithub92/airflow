@@ -1,8 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import sqlite3
 import numpy as np
 import pandas as pd
-import datetime
 import os
 from fastapi import FastAPI, File, UploadFile
 #from pathlib import Path
@@ -17,7 +16,7 @@ import string
 #Esta entrada devuelve un JSON en dónde se indican las recomendaciones del
 #día para el adv y el modelo en cuestión.
 
-resultados_consolidados=pd.read_csv("resultados_consolidados.csv")
+resultados_consolidados=pd.read_csv(r"/Users/ychaher/Desktop/Maestria/airflow/airflow/resultados_consolidados.csv")
 app = FastAPI()
 @app.get("/recomendacion/")
 async def recomendacion(advertiser_id: str, date: str, modelo: str):
@@ -49,7 +48,7 @@ async def get_stats():
 #Esta entrada devuelve un JSON con un resumen de estadísticas sobre las
 #recomendaciones a determinar por ustedes. Algunas opciones posibles:
    # Productos que coinciden entre ambos modelos por advertiser por dia
-resultados_consolidados_coincidencias=pd.read_csv("resultados_consolidados_coincidencias.csv")
+resultados_consolidados_coincidencias=pd.read_csv(r"/Users/ychaher/Desktop/Maestria/airflow/airflow/resultados_consolidados_coincidencias.csv")
 
 @app.get("/coincidencias/")
 async def coincidencias(advertiser_id: str, date: str):
@@ -65,7 +64,6 @@ async def coincidencias(advertiser_id: str, date: str):
 #/history/<ADV>/
 #Esta entrada devuelve un JSON con todas las recomendaciones para el advertirse pasado por parámetro en los últimos 7 días.
 
-from datetime import datetime, timedelta
 from typing import Optional
 @app.get("/history/")
 async def get_products(advertiser_id: str, modelo: str, date: Optional[str] = None):
@@ -97,28 +95,18 @@ async def get_products(advertiser_id: str, modelo: str, date: Optional[str] = No
 
 #Diferencias
 @app.get("/variaciones/{modelo}")
-
-def variaciones(modelo: str):
+def variaciones(modelo: str, date: str):
     conn = sqlite3.connect(':memory:')
     resultados_consolidados.to_sql('tabla_products5', conn, index=False)
     cur = conn.cursor()
     cur.execute(f"SELECT DISTINCT advertiser_id FROM tabla_products5 WHERE modelo = '{modelo}'")
     advertisers = cur.fetchall()
     result = {}
-    for adv in advertisers:
-        adv_id = adv[0]
-        cur.execute(f"SELECT DISTINCT date FROM tabla_products5 WHERE modelo = '{modelo}' AND advertiser_id = '{adv_id}' ORDER BY date")
-        dates = cur.fetchall()
-        diffs = {}
-        for i in range(len(dates)-1):
-            date1 = dates[i][0]
-            date2 = dates[i+1][0]
-            cur.execute(f"SELECT COUNT(DISTINCT product_id) FROM tabla_products5 WHERE modelo = '{modelo}' AND advertiser_id = '{adv_id}'")
-            count1 = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(DISTINCT product_id) FROM tabla_products5 WHERE modelo = '{modelo}' AND advertiser_id = '{adv_id}'")
-            count2 = cur.fetchone()[0]
-            diffs[date1] = abs(count1 - count2)
-        total_diffs = sum(diffs.values())
-        result[adv_id] = {"modelo": modelo, "advertiser_id": adv_id, "variaciones": diffs, "total_variaciones": total_diffs}
-    result_sorted = sorted(result.values(), key=lambda x: x["total_variaciones"], reverse=True)
-    return result_sorted
+    date1 = date
+    date_object = datetime.strptime(date, '%Y-%m-%d')
+    next_day_object = date_object - timedelta(days=1)
+    date2 = next_day_object.strftime('%Y-%m-%d')
+    cur.execute(f"SELECT t1.advertiser_id, COUNT(DISTINCT t1.product_id) FROM tabla_products5 t1 WHERE t1.date = '{date1}' AND t1.product_id NOT IN (SELECT t2.product_id FROM tabla_products5 t2 WHERE t2.date = '{date2}') GROUP BY t1.advertiser_id")
+    rtdo = cur.fetchall()
+    result = {item[0]: {"modelo": modelo, "advertiser": item[0], "variacion_en_productos": item[1] } for item in rtdo}
+    return result
