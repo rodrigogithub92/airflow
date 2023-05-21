@@ -108,5 +108,6 @@ def variaciones(modelo: str, date: str):
     date2 = next_day_object.strftime('%Y-%m-%d')
     cur.execute(f"SELECT t1.advertiser_id, COUNT(DISTINCT t1.product_id) FROM tabla_products5 t1 WHERE t1.date = '{date1}' AND t1.product_id NOT IN (SELECT t2.product_id FROM tabla_products5 t2 WHERE t2.date = '{date2}') GROUP BY t1.advertiser_id")
     rtdo = cur.fetchall()
-    result = {item[0]: {"modelo": modelo, "advertiser": item[0], "variacion_en_productos": item[1] } for item in rtdo}
+    result = [{"modelo": modelo, "advertiser": item[0], "variacion_en_productos": item[1]} for item in rtdo]
+    result.sort(key=lambda x: x["variacion_en_productos"], reverse=True)
     return result
