@@ -16,7 +16,7 @@ import string
 #Esta entrada devuelve un JSON en dónde se indican las recomendaciones del
 #día para el adv y el modelo en cuestión.
 
-resultados_consolidados=pd.read_csv(r"/Users/ychaher/Desktop/Maestria/airflow/airflow/resultados_consolidados.csv")
+resultados_consolidados=pd.read_csv("resultados_consolidados.csv")
 app = FastAPI()
 @app.get("/recomendacion/")
 async def recomendacion(advertiser_id: str, date: str, modelo: str):
@@ -48,7 +48,7 @@ async def get_stats():
 #Esta entrada devuelve un JSON con un resumen de estadísticas sobre las
 #recomendaciones a determinar por ustedes. Algunas opciones posibles:
    # Productos que coinciden entre ambos modelos por advertiser por dia
-resultados_consolidados_coincidencias=pd.read_csv(r"/Users/ychaher/Desktop/Maestria/airflow/airflow/resultados_consolidados_coincidencias.csv")
+resultados_consolidados_coincidencias=pd.read_csv("resultados_consolidados_coincidencias.csv")
 
 @app.get("/coincidencias/")
 async def coincidencias(advertiser_id: str, date: str):
