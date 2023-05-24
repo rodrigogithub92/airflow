@@ -92,19 +92,3 @@ async def get_products(advertiser_id: str, modelo: str, date: Optional[str] = No
             results[fecha].append(product_id)
 
     return {"advertiser_id": advertiser_id, "modelo": modelo, "results": results}
-
-#Diferencias
-@app.get("/variaciones/{modelo}")
-def variaciones(modelo: str, date: str):
-    conn = sqlite3.connect(':memory:')
-    resultados_consolidados.to_sql('tabla_products5', conn, index=False)
-    cur = conn.cursor()
-    date1 = date
-    date_object = datetime.strptime(date, '%Y-%m-%d')
-    next_day_object = date_object - timedelta(days=1)
-    date2 = next_day_object.strftime('%Y-%m-%d')
-    cur.execute(f"SELECT t1.advertiser_id, COUNT(DISTINCT t1.product_id), t1.modelo FROM tabla_products5 t1 LEFT JOIN tabla_products5 t2 on t1.product_id = t2.product_id AND t2.date = '{date2}' WHERE t1.date = '{date1}' AND  t1.modelo = '{modelo}' AND t2.product_id IS NULL GROUP BY t1.advertiser_id")
-    rtdo = cur.fetchall()
-    result = [{"modelo": modelo, "advertiser": item[0], "variacion_en_productos": item[1]} for item in rtdo]
-    result.sort(key=lambda x: x["variacion_en_productos"], reverse=True)
-    return result
